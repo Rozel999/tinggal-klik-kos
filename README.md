@@ -1,1 +1,0 @@
-# tinggal-klik-kos
