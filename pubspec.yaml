@@ -1,0 +1,27 @@
+name: tinggal_klik_kos
+description: Aplikasi pencarian dan manajemen kos Tinggal Klik kos ku.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  go_router: ^16.2.1
+  shared_preferences: ^2.5.3
+
+  material_ui: any
+  supabase_flutter: ^2.18.3
+  flutter_map: 8.3.2
+  latlong2: 0.10.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

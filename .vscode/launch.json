@@ -1,0 +1,12 @@
+﻿{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Pencari Kos (Supabase)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define=APP_BACKEND=supabase", "--dart-define-from-file=backend/supabase.local.json"]
+    }
+  ]
+}
