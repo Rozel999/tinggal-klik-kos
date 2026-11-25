@@ -25,7 +25,7 @@ class AppOwnerHomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Text('Halo, ${user?.name ?? 'Owner aplikasi'} 👋',
-              style: const TextStyle(color: Color(0xFF78837F))),
+              style: const TextStyle(color: Color(0xFF5F6B73))),
           const SizedBox(height: 6),
           const Text('Kendali platform',
               style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
@@ -95,9 +95,9 @@ class AppOwnerHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Akun Owner aplikasi demo hanya untuk tampilan lokal. Penetapan role produksi harus dilakukan melalui backend, bukan formulir pendaftaran.',
+            'Penetapan role Owner aplikasi dan Admin dilakukan melalui backend tepercaya, bukan formulir pendaftaran.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Color(0xFF78837F)),
+            style: TextStyle(fontSize: 11, color: Color(0xFF5F6B73)),
           ),
         ],
       ),

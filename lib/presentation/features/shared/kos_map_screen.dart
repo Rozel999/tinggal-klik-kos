@@ -2,18 +2,46 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/services/device_location_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/kos_models.dart';
 
 const padangCenter = LatLng(-0.9471, 100.4172);
 
-class KosMapScreen extends StatelessWidget {
+class KosMapScreen extends StatefulWidget {
   const KosMapScreen({required this.listings, super.key});
   final List<KosListing> listings;
 
   @override
+  State<KosMapScreen> createState() => _KosMapScreenState();
+}
+
+class _KosMapScreenState extends State<KosMapScreen> {
+  final _mapController = MapController();
+  LatLng? _myLocation;
+  bool _locating = false;
+
+  Future<void> _locateMe() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final position = await DeviceLocationService.currentPosition();
+      if (!mounted) return;
+      final point = LatLng(position.latitude, position.longitude);
+      setState(() => _myLocation = point);
+      _mapController.move(point, 15);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lokasi belum tersedia: $error')));
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final valid = listings
+    final valid = widget.listings
         .where((x) => x.latitude.abs() > 0.0001 && x.longitude.abs() > 0.0001)
         .toList();
     final center = valid.isEmpty
@@ -24,36 +52,70 @@ class KosMapScreen extends StatelessWidget {
       body: Column(children: [
         Expanded(
           flex: 6,
-          child: FlutterMap(
-            options: MapOptions(
-                initialCenter: center,
-                initialZoom: valid.length == 1 ? 15 : 12),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.tinggal_klik_kos',
-              ),
-              MarkerLayer(markers: [
-                for (final listing in valid)
-                  Marker(
-                    point: LatLng(listing.latitude, listing.longitude),
-                    width: 44,
-                    height: 52,
-                    child: Tooltip(
-                      message: listing.name,
-                      child: const Icon(Icons.location_on,
-                          color: AppTheme.teal, size: 42),
+          child: Stack(children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: valid.length == 1 ? 15 : 12),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.tinggal_klik_kos',
+                ),
+                MarkerLayer(markers: [
+                  for (final listing in valid)
+                    Marker(
+                      point: LatLng(listing.latitude, listing.longitude),
+                      width: 44,
+                      height: 52,
+                      child: Tooltip(
+                        message: listing.name,
+                        child: const Icon(Icons.location_on,
+                            color: AppTheme.teal, size: 42),
+                      ),
                     ),
-                  ),
-              ]),
-              const RichAttributionWidget(
-                alignment: AttributionAlignment.bottomRight,
-                attributions: [
-                  TextSourceAttribution('• OpenStreetMap contributors')
-                ],
+                  if (_myLocation case final location?)
+                    Marker(
+                      point: location,
+                      width: 28,
+                      height: 28,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2878E8),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 8)
+                          ],
+                        ),
+                      ),
+                    ),
+                ]),
+                const RichAttributionWidget(
+                  alignment: AttributionAlignment.bottomRight,
+                  attributions: [
+                    TextSourceAttribution('• OpenStreetMap contributors')
+                  ],
+                ),
+              ],
+            ),
+            Positioned(
+              right: 14,
+              top: 14,
+              child: FloatingActionButton.small(
+                heroTag: 'map-my-location',
+                tooltip: 'Lokasi saya (GPS)',
+                onPressed: _locating ? null : _locateMe,
+                child: _locating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location_rounded),
               ),
-            ],
-          ),
+            ),
+          ]),
         ),
         if (valid.isEmpty)
           const Padding(
@@ -100,14 +162,38 @@ class KosLocationPickerScreen extends StatefulWidget {
 }
 
 class _KosLocationPickerScreenState extends State<KosLocationPickerScreen> {
+  final _mapController = MapController();
   late LatLng _selected = widget.initialPoint ?? padangCenter;
   late bool _hasSelection = widget.initialPoint != null;
+  bool _locating = false;
+
+  Future<void> _locateMe() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final position = await DeviceLocationService.currentPosition();
+      if (!mounted) return;
+      final point = LatLng(position.latitude, position.longitude);
+      setState(() {
+        _selected = point;
+        _hasSelection = true;
+      });
+      _mapController.move(point, 16);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('GPS belum dapat dipakai: $error')));
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Pilih lokasi kos')),
         body: Stack(children: [
           FlutterMap(
+            mapController: _mapController,
             options: MapOptions(
               initialCenter: _selected,
               initialZoom: widget.initialPoint == null ? 12 : 15,
@@ -138,6 +224,21 @@ class _KosLocationPickerScreenState extends State<KosLocationPickerScreen> {
                 ],
               ),
             ],
+          ),
+          Positioned(
+            right: 16,
+            top: 106,
+            child: FloatingActionButton.small(
+              heroTag: 'picker-my-location',
+              tooltip: 'Gunakan lokasi perangkat',
+              onPressed: _locating ? null : _locateMe,
+              child: _locating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.my_location_rounded),
+            ),
           ),
           Positioned(
             left: 16,

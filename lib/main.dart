@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,10 +14,13 @@ import 'presentation/providers/kos_data_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (BackendConfig.mode != BackendMode.supabase ||
-      !BackendConfig.isConfigured) {
+  if (BackendConfig.mode != BackendMode.supabase) {
     throw StateError(
-        'Supabase belum dikonfigurasi. Jalankan dengan SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY.');
+        'Aplikasi ini harus dijalankan dengan Supabase. Pilih konfigurasi VS Code "Tinggal Klik Kos (Supabase)" atau gunakan perintah di README.');
+  }
+  if (!BackendConfig.isConfigured) {
+    throw StateError(
+        'Supabase belum terkonfigurasi. Jalankan menggunakan --dart-define-from-file=backend/supabase.local.json.');
   }
   await Supabase.initialize(
     url: BackendConfig.supabaseUrl,
@@ -24,7 +29,7 @@ Future<void> main() async {
   final auth = AuthProvider(repository: SupabaseAuthRepository());
   await auth.restoreSession();
   final data = KosDataProvider();
-  await data.load();
+  unawaited(data.load());
 
   runApp(
     MultiProvider(
@@ -44,7 +49,7 @@ class TinggalKlikApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final router = createAppRouter(context.read<AuthProvider>());
     return MaterialApp.router(
-      title: 'Tinggal Klik kos ku',
+      title: 'Tinggal Klik Kos',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

@@ -207,6 +207,45 @@ class KosInvoice {
       isPaid: isPaid ?? this.isPaid);
 }
 
+class KosReview {
+  const KosReview({
+    required this.id,
+    required this.bookingId,
+    required this.listingId,
+    required this.customerId,
+    required this.customerName,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  final String id, bookingId, listingId, customerId, customerName, comment;
+  final int rating;
+  final DateTime createdAt;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'bookingId': bookingId,
+        'listingId': listingId,
+        'customerId': customerId,
+        'customerName': customerName,
+        'rating': rating,
+        'comment': comment,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory KosReview.fromJson(Map<String, dynamic> json) => KosReview(
+        id: json['id'] as String,
+        bookingId: json['bookingId'] as String,
+        listingId: json['listingId'] as String,
+        customerId: json['customerId'] as String,
+        customerName: json['customerName'] as String,
+        rating: (json['rating'] as num).toInt(),
+        comment: json['comment'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+}
+
 class KosRoom {
   const KosRoom(
       {required this.id,

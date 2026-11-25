@@ -1,4 +1,6 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -6,6 +8,7 @@ import '../../../domain/entities/app_user.dart';
 import '../../../domain/entities/kos_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kos_data_provider.dart';
+import 'review_screen.dart';
 
 class CustomerBookingsScreen extends StatelessWidget {
   const CustomerBookingsScreen({required this.customerId, super.key});
@@ -49,26 +52,47 @@ class CustomerBookingsScreen extends StatelessWidget {
                                         ? 'Survei • ${_date(b.moveIn)}'
                                         : 'Booking mulai • ${_date(b.moveIn)}',
                                     style: const TextStyle(
-                                        color: Color(0xFF687572))),
+                                        color: Color(0xFF5F6B73))),
                                 if (b.note.isNotEmpty)
                                   Padding(
                                       padding: const EdgeInsets.only(top: 6),
                                       child: Text(b.note,
                                           style: const TextStyle(
                                               fontSize: 12,
-                                              color: Color(0xFF687572)))),
+                                              color: Color(0xFF5F6B73)))),
                                 const SizedBox(height: 12),
-                                Align(
-                                    alignment: Alignment.centerRight,
-                                    child: OutlinedButton.icon(
-                                        onPressed: () => Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                                builder: (_) =>
-                                                    KosChatScreen(booking: b))),
-                                        icon: const Icon(
-                                            Icons.chat_bubble_outline_rounded),
-                                        label: const Text('Buka chat'))),
+                                Wrap(
+                                    alignment: WrapAlignment.end,
+                                    spacing: 8,
+                                    children: [
+                                      OutlinedButton.icon(
+                                          onPressed: () => Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (_) => KosChatScreen(
+                                                      booking: b))),
+                                          icon: const Icon(Icons
+                                              .chat_bubble_outline_rounded),
+                                          label: const Text('Buka chat')),
+                                      if (b.kind == 'booking' &&
+                                          b.status == 'completed')
+                                        OutlinedButton.icon(
+                                            onPressed: data
+                                                    .hasReviewedBooking(b.id)
+                                                ? null
+                                                : () => Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            ReviewScreen(
+                                                                booking: b))),
+                                            icon: const Icon(
+                                                Icons.star_outline_rounded),
+                                            label: Text(
+                                                data.hasReviewedBooking(b.id)
+                                                    ? 'Sudah diulas'
+                                                    : 'Tulis ulasan')),
+                                    ]),
                               ])));
                 }).toList()));
   }
@@ -114,7 +138,7 @@ class OwnerBookingsScreen extends StatelessWidget {
                                     '${b.kind == 'survey' ? 'Permintaan survei' : 'Booking kamar'} • ${place?.name ?? 'Kos dihapus'}'),
                                 Text('Tanggal: ${_date(b.moveIn)}',
                                     style: const TextStyle(
-                                        color: Color(0xFF687572))),
+                                        color: Color(0xFF5F6B73))),
                                 const SizedBox(height: 11),
                                 Wrap(spacing: 8, runSpacing: 6, children: [
                                   OutlinedButton.icon(
@@ -127,24 +151,35 @@ class OwnerBookingsScreen extends StatelessWidget {
                                       label: const Text('Chat')),
                                   if (b.status == 'pending')
                                     OutlinedButton(
-                                        onPressed: () => data.setBookingStatus(
-                                            b.id, 'rejected'),
+                                        onPressed: () => _setBookingStatus(
+                                            context, data, b.id, 'rejected'),
                                         child: const Text('Tolak')),
                                   if (b.status == 'pending')
                                     ElevatedButton(
-                                        onPressed: () => data.setBookingStatus(
-                                            b.id, 'accepted'),
+                                        onPressed: () => _setBookingStatus(
+                                            context, data, b.id, 'accepted'),
                                         child: Text(b.kind == 'survey'
                                             ? 'Setujui survei'
                                             : 'Terima booking')),
                                   if (b.status == 'accepted')
                                     TextButton(
-                                        onPressed: () => data.setBookingStatus(
-                                            b.id, 'completed'),
+                                        onPressed: () => _setBookingStatus(
+                                            context, data, b.id, 'completed'),
                                         child: const Text('Tandai selesai'))
                                 ]),
                               ])));
                 }).toList()));
+  }
+}
+
+Future<void> _setBookingStatus(BuildContext context, KosDataProvider data,
+    String bookingId, String status) async {
+  try {
+    await data.setBookingStatus(bookingId, status);
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Status booking gagal diperbarui: $error')));
   }
 }
 
@@ -157,6 +192,7 @@ class KosChatScreen extends StatefulWidget {
 
 class _KosChatScreenState extends State<KosChatScreen> {
   final _text = TextEditingController();
+  bool _sending = false;
   @override
   void dispose() {
     _text.dispose();
@@ -165,14 +201,24 @@ class _KosChatScreenState extends State<KosChatScreen> {
 
   Future<void> _send() async {
     final user = context.read<AuthProvider>().user;
-    if (user == null || _text.text.trim().isEmpty) return;
-    final text = _text.text;
-    _text.clear();
-    await context.read<KosDataProvider>().sendMessage(
-        bookingId: widget.booking.id,
-        senderId: user.id,
-        senderName: user.name,
-        text: text);
+    final text = _text.text.trim();
+    if (user == null || text.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await context.read<KosDataProvider>().sendMessage(
+          bookingId: widget.booking.id,
+          senderId: user.id,
+          senderName: user.name,
+          text: text);
+      if (!mounted) return;
+      _text.clear();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Pesan gagal dikirim: $error')));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -190,7 +236,7 @@ class _KosChatScreenState extends State<KosChatScreen> {
               user?.role == UserRole.kosOwner
                   ? widget.booking.customerName
                   : 'Pemilik ${place?.ownerName ?? ''}',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF687572)))
+              style: const TextStyle(fontSize: 11, color: Color(0xFF5F6B73)))
         ])),
         body: Column(children: [
           Expanded(
@@ -249,19 +295,36 @@ class _KosChatScreenState extends State<KosChatScreen> {
               top: false,
               child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: Row(children: [
-                    Expanded(
-                        child: TextField(
-                            controller: _text,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _send(),
-                            decoration: const InputDecoration(
-                                hintText: 'Tulis pesan...',
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 15, vertical: 12)))),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                        onPressed: _send, icon: const Icon(Icons.send_rounded))
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                            padding: EdgeInsets.only(left: 4, bottom: 5),
+                            child: Text('Pesan dihapus otomatis setelah 24 jam.',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFF5F6B73))))),
+                    Row(children: [
+                      Expanded(
+                          child: TextField(
+                              controller: _text,
+                              readOnly: _sending,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _send(),
+                              decoration: const InputDecoration(
+                                  hintText: 'Tulis pesan...',
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 15, vertical: 12)))),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                          onPressed: _sending ? null : _send,
+                          icon: _sending
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2))
+                              : const Icon(Icons.send_rounded))
+                    ])
                   ]))),
         ]));
   }
@@ -286,6 +349,11 @@ class InvoiceListScreen extends StatelessWidget {
               children: items
                   .map((i) => Card(
                         child: ListTile(
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      InvoiceDetailScreen(invoice: i))),
                           leading: CircleAvatar(
                               backgroundColor: i.isPaid
                                   ? const Color(0xFFEAF3EF)
@@ -306,28 +374,241 @@ class InvoiceListScreen extends StatelessWidget {
                               ? const Icon(Icons.verified_rounded,
                                   color: AppTheme.teal)
                               : TextButton(
-                                  onPressed: () => _paymentInfo(context),
-                                  child: const Text('Info bayar')),
+                                  onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              PaymentMethodScreen(invoice: i))),
+                                  child: const Text('Bayar')),
                         ),
                       ))
                   .toList()),
     );
   }
+}
 
-  void _paymentInfo(BuildContext context) {
-    showDialog<void>(
-        context: context,
-        builder: (c) => AlertDialog(
-              title: const Text('Pembayaran online belum tersedia'),
-              content: const Text(
-                  'Hubungi pemilik kos untuk metode pembayaran. Status tagihan baru diperbarui setelah gateway pembayaran resmi dihubungkan.'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(c),
-                    child: const Text('Mengerti'))
-              ],
-            ));
+class InvoiceDetailScreen extends StatelessWidget {
+  const InvoiceDetailScreen({required this.invoice, super.key});
+  final KosInvoice invoice;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Detail tagihan')),
+        body: ListView(padding: const EdgeInsets.all(20), children: [
+          Card(
+              child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(invoice.listingName,
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 12),
+                        Text('Jumlah: Rp${invoice.amount}'),
+                        Text('Jatuh tempo: ${_date(invoice.dueAt)}'),
+                        Text(
+                            'Status: ${invoice.isPaid ? 'Lunas' : 'Belum dibayar'}'),
+                      ]))),
+          const SizedBox(height: 16),
+          if (invoice.isPaid)
+            FilledButton.icon(
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            PaymentSuccessScreen(invoice: invoice))),
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: const Text('Lihat struk'))
+          else
+            FilledButton.icon(
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => PaymentMethodScreen(invoice: invoice))),
+                icon: const Icon(Icons.payment_rounded),
+                label: const Text('Bayar sekarang')),
+        ]),
+      );
+}
+
+class PaymentMethodScreen extends StatefulWidget {
+  const PaymentMethodScreen({required this.invoice, super.key});
+  final KosInvoice invoice;
+
+  @override
+  State<PaymentMethodScreen> createState() => _PaymentMethodScreenState();
+}
+
+class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
+  String _method = 'QRIS';
+  static const _methods = [
+    'Bank Nagari',
+    'BRI',
+    'Bank Mandiri',
+    'QRIS',
+    'E-wallet',
+    'Tunai ke pemilik'
+  ];
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Metode pembayaran')),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          Text(widget.invoice.listingName,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text('Total Rp${widget.invoice.amount}',
+              style: const TextStyle(color: AppTheme.teal, fontSize: 18)),
+          const SizedBox(height: 12),
+          RadioGroup<String>(
+              groupValue: _method,
+              onChanged: (value) => setState(() => _method = value!),
+              child: Column(children: [
+                for (final method in _methods)
+                  Card(
+                    child: RadioListTile<String>(
+                      value: method,
+                      title: Text(method),
+                    ),
+                  ),
+              ])),
+          const SizedBox(height: 14),
+          const Card(
+              child: Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text(
+                      'Pembayaran di aplikasi ini masih simulasi. Tidak ada transfer uang atau konfirmasi bank sungguhan.'))),
+          const SizedBox(height: 14),
+          FilledButton(
+              onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => PaymentPendingScreen(
+                          invoice: widget.invoice, method: _method))),
+              child: const Text('Lanjutkan')),
+        ]),
+      );
+}
+
+class PaymentPendingScreen extends StatefulWidget {
+  const PaymentPendingScreen(
+      {required this.invoice, required this.method, super.key});
+  final KosInvoice invoice;
+  final String method;
+
+  @override
+  State<PaymentPendingScreen> createState() => _PaymentPendingScreenState();
+}
+
+class _PaymentPendingScreenState extends State<PaymentPendingScreen> {
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Menunggu pembayaran')),
+        body: ListView(padding: const EdgeInsets.all(20), children: [
+          const Icon(Icons.hourglass_top_rounded,
+              size: 56, color: AppTheme.teal),
+          const SizedBox(height: 14),
+          Text('Metode: ${widget.method}', textAlign: TextAlign.center),
+          Text(
+              'Tagihan ${widget.invoice.listingName} • Rp${widget.invoice.amount}',
+              textAlign: TextAlign.center),
+          const SizedBox(height: 18),
+          const Card(
+              child: Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text(
+                      'Mode simulasi: tombol cek status akan menandai tagihan lunas untuk menguji alur UI. Ini tidak memproses pembayaran nyata.'))),
+          const SizedBox(height: 14),
+          FilledButton(
+              onPressed: _saving ? null : _simulatePaid,
+              child: _saving
+                  ? const CircularProgressIndicator()
+                  : const Text('Cek status (simulasi)')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ganti metode pembayaran')),
+        ]),
+      );
+
+  Future<void> _simulatePaid() async {
+    setState(() => _saving = true);
+    try {
+      await context.read<KosDataProvider>().markInvoicePaid(widget.invoice.id);
+      if (!mounted) return;
+      await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) => PaymentSuccessScreen(invoice: widget.invoice)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Status pembayaran gagal diperiksa: $error')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
+}
+
+class PaymentSuccessScreen extends StatelessWidget {
+  const PaymentSuccessScreen({required this.invoice, super.key});
+  final KosInvoice invoice;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Pembayaran berhasil')),
+        body: ListView(padding: const EdgeInsets.all(20), children: [
+          const Icon(Icons.check_circle_rounded,
+              size: 64, color: AppTheme.teal),
+          const SizedBox(height: 12),
+          const Text('Status lunas tersimpan (simulasi).',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 20),
+          Card(
+              child: ListTile(
+                  title: Text(invoice.listingName),
+                  subtitle:
+                      Text('Rp${invoice.amount} • ${_date(DateTime.now())}'))),
+          OutlinedButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(
+                    text:
+                        'Struk simulasi\n${invoice.listingName}\nRp${invoice.amount}\n${_date(DateTime.now())}'));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Informasi struk disalin.')));
+                }
+              },
+              icon: const Icon(Icons.copy_rounded),
+              label: const Text('Salin struk')),
+          OutlinedButton.icon(
+              onPressed: () {
+                final data = context.read<KosDataProvider>();
+                KosBooking? booking;
+                for (final item in data.bookings) {
+                  if (item.id == invoice.bookingId) booking = item;
+                }
+                if (booking == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'Percakapan untuk tagihan ini tidak ditemukan.')));
+                  return;
+                }
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => KosChatScreen(booking: booking!)));
+              },
+              icon: const Icon(Icons.chat_outlined),
+              label: const Text('Kirim ke pemilik')),
+          FilledButton(
+              onPressed: () => context.go('/customer'),
+              child: const Text('Kembali ke beranda')),
+        ]),
+      );
 }
 
 class NotificationCenterScreen extends StatelessWidget {
@@ -348,14 +629,23 @@ class NotificationCenterScreen extends StatelessWidget {
             title: Text(b.kind == 'survey'
                 ? 'Jadwal survei diperbarui'
                 : 'Status booking diperbarui'),
-            subtitle: Text('Status: ${_statusText(b.status)}')));
+            subtitle: Text('Status: ${_statusText(b.status)}'),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) =>
+                        CustomerBookingsScreen(customerId: user!.id)))));
       }
     }
     for (final i in invoices.where((x) => !x.isPaid)) {
       items.add(ListTile(
           leading: const Icon(Icons.receipt_long, color: Color(0xFFBE7B20)),
           title: const Text('Tagihan baru'),
-          subtitle: Text('${i.listingName} • jatuh tempo ${_date(i.dueAt)}')));
+          subtitle: Text('${i.listingName} • jatuh tempo ${_date(i.dueAt)}'),
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => InvoiceDetailScreen(invoice: i)))));
     }
     return Scaffold(
         appBar: AppBar(title: const Text('Notifikasi')),
@@ -410,7 +700,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 7),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF687572), height: 1.4))
+                style: const TextStyle(color: Color(0xFF5F6B73), height: 1.4))
           ])));
 }
 

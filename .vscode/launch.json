@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Pencari Kos (Supabase)",
+      "name": "Tinggal Klik Kos (Supabase)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",

@@ -1,11 +1,11 @@
 {
-    "name": "tinggal_klik_kos",
-    "short_name": "tinggal_klik_kos",
+    "name": "Tinggal Klik Kos",
+    "short_name": "Tinggal Klik Kos",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Cari kos nyaman di Kota Padang dengan Tinggal Klik Kos.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

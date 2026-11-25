@@ -10,8 +10,10 @@ import 'kos_map_screen.dart';
 export 'kos_map_screen.dart';
 
 class KosDetailScreen extends StatelessWidget {
-  const KosDetailScreen({required this.listing, super.key});
+  const KosDetailScreen(
+      {required this.listing, this.readOnly = false, super.key});
   final KosListing listing;
+  final bool readOnly;
 
   Future<void> _request(BuildContext context, String kind) async {
     final user = context.read<AuthProvider>().user;
@@ -64,7 +66,9 @@ class KosDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rooms = context.watch<KosDataProvider>().roomsForListing(listing.id);
+    final data = context.watch<KosDataProvider>();
+    final rooms = data.roomsForListing(listing.id);
+    final reviews = data.reviewsForListing(listing.id);
     final available = rooms.isEmpty
         ? listing.roomsAvailable
         : rooms.where((room) => room.status == 'available').length;
@@ -135,7 +139,7 @@ class KosDetailScreen extends StatelessWidget {
               const SizedBox(width: 5),
               Expanded(
                   child: Text(listing.address,
-                      style: const TextStyle(color: Color(0xFF687572))))
+                      style: const TextStyle(color: Color(0xFF5F6B73))))
             ]),
             const SizedBox(height: 13),
             Text('Rp${listing.price.toString()} / bulan',
@@ -154,7 +158,7 @@ class KosDetailScreen extends StatelessWidget {
                 title: 'Fasilitas',
                 child: listing.amenities.isEmpty
                     ? const Text('Fasilitas belum ditambahkan pemilik.',
-                        style: TextStyle(color: Color(0xFF687572)))
+                        style: TextStyle(color: Color(0xFF5F6B73)))
                     : Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -174,7 +178,7 @@ class KosDetailScreen extends StatelessWidget {
                         '${listing.roomsAvailable} dari ${listing.roomsTotal} kamar tersedia. Rincian unit belum ditambahkan.',
                         style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF687572)))
+                            color: Color(0xFF5F6B73)))
                     : Column(
                         children: rooms.map((room) {
                           final isAvailable = room.status == 'available';
@@ -220,6 +224,26 @@ class KosDetailScreen extends StatelessWidget {
               title: Text(listing.ownerName),
               subtitle: const Text('Pemilik kos'),
             ),
+            _Section(
+                title: 'Ulasan (${reviews.length})',
+                child: reviews.isEmpty
+                    ? const Text('Belum ada ulasan untuk kos ini.')
+                    : Column(
+                        children: reviews
+                            .map((review) => ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Row(children: [
+                                    Expanded(child: Text(review.customerName)),
+                                    Text('★ ${review.rating}/5',
+                                        style: const TextStyle(
+                                            color: Color(0xFFAF711C),
+                                            fontWeight: FontWeight.w700)),
+                                  ]),
+                                  subtitle: Text(review.comment.isEmpty
+                                      ? 'Tanpa komentar'
+                                      : review.comment),
+                                ))
+                            .toList())),
             const SizedBox(height: 8),
             OutlinedButton.icon(
                 onPressed: () => Navigator.push(
@@ -229,23 +253,25 @@ class KosDetailScreen extends StatelessWidget {
                 icon: const Icon(Icons.map_outlined),
                 label: const Text('Lihat lokasi di peta')),
             const SizedBox(height: 10),
-            ElevatedButton.icon(
-                onPressed: available == 0 || hasActiveBooking
-                    ? null
-                    : () => _request(context, 'booking'),
-                icon: const Icon(Icons.event_available_outlined),
-                label: Text(alreadyAccepted
-                    ? 'Kamar sudah dihuni'
-                    : hasActiveBooking
-                        ? 'Booking sedang diproses'
-                        : available == 0
-                            ? 'Kamar sudah terisi'
-                            : 'Ajukan booking')),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-                onPressed: () => _request(context, 'survey'),
-                icon: const Icon(Icons.calendar_month_outlined),
-                label: const Text('Jadwalkan survei & chat pemilik')),
+            if (!readOnly)
+              ElevatedButton.icon(
+                  onPressed: available == 0 || hasActiveBooking
+                      ? null
+                      : () => _request(context, 'booking'),
+                  icon: const Icon(Icons.event_available_outlined),
+                  label: Text(alreadyAccepted
+                      ? 'Kamar sudah dihuni'
+                      : hasActiveBooking
+                          ? 'Booking sedang diproses'
+                          : available == 0
+                              ? 'Kamar sudah terisi'
+                              : 'Ajukan booking')),
+            if (!readOnly) const SizedBox(height: 8),
+            if (!readOnly)
+              OutlinedButton.icon(
+                  onPressed: () => _request(context, 'survey'),
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: const Text('Jadwalkan survei & chat pemilik')),
           ]),
     );
   }

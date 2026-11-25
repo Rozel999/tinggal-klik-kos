@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/app_user.dart';
 import 'auth_repository.dart';
@@ -8,6 +9,19 @@ class SupabaseAuthRepository implements AuthRepository {
       : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+
+  @override
+  Stream<AppUser?> get authStateChanges =>
+      _client.auth.onAuthStateChange.asyncMap((state) async =>
+          state.session == null ? null : _loadProfile(state.session!.user));
+
+  @override
+  Future<void> signInWithGoogle() async {
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: kIsWeb ? null : 'io.supabase.tinggalklik://login-callback/',
+    );
+  }
 
   @override
   Future<AppUser> signIn(String email, String password) async {
@@ -87,6 +101,18 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> resetPassword(String email) =>
       _client.auth.resetPasswordForEmail(email.trim().toLowerCase());
+
+  @override
+  Future<AppUser> updateDisplayName(String name) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) throw Exception('Sesi login sudah berakhir.');
+    final cleaned = name.trim();
+    if (cleaned.isEmpty) throw Exception('Nama tidak boleh kosong.');
+    await _client
+        .from('profiles')
+        .update({'display_name': cleaned}).eq('id', authUser.id);
+    return _loadProfile(authUser);
+  }
 
   @override
   Future<void> signOut() => _client.auth.signOut();

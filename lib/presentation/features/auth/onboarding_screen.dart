@@ -84,7 +84,7 @@ class _BrandHeader extends StatelessWidget {
         ),
         const SizedBox(width: 11),
         const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Tinggal Klik',
+          Text('Tinggal Klik Kos',
               style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
@@ -130,15 +130,15 @@ class _WelcomeHero extends StatelessWidget {
           borderRadius: BorderRadius.circular(30),
         ),
         child: Stack(children: [
-          Positioned(right: -40, top: -48, child: _Glow(size: 210)),
-          Positioned(left: -34, bottom: -90, child: _Glow(size: 230)),
+          const Positioned(right: -40, top: -48, child: _Glow(size: 210)),
+          const Positioned(left: -34, bottom: -90, child: _Glow(size: 230)),
           Positioned(
               right: 27,
               top: 48,
               child: Icon(Icons.location_city_rounded,
                   size: height * .68,
                   color: Colors.white.withValues(alpha: .13))),
-          Positioned(
+          const Positioned(
               left: 20,
               top: 22,
               child: _HeroChip(
@@ -167,7 +167,7 @@ class _WelcomeHero extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             letterSpacing: -.3)),
                   ])),
-          Positioned(
+          const Positioned(
               right: 16,
               top: 105,
               child: _HeroChip(
