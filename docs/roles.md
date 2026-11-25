@@ -1,6 +1,6 @@
-# Tinggal Klik kos ku
+# Tinggal Klik Kos
 
-Aplikasi demo Flutter untuk pencarian dan pengelolaan kos di Kota Padang, Sumatera Barat.
+Aplikasi Flutter yang memakai Supabase untuk pencarian dan pengelolaan kos di Kota Padang, Sumatera Barat. Tidak tersedia akun atau data demo.
 
 ## Peran aplikasi
 

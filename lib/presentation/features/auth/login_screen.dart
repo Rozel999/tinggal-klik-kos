@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_user.dart';
 import '../../providers/auth_provider.dart';
 
@@ -53,6 +54,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _googleLogin() async {
+    final auth = context.read<AuthProvider>();
+    final success = await auth.signInWithGoogle();
+    if (!mounted || success) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.error ?? 'Login Google gagal dimulai.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -74,6 +83,29 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(children: [
+                      Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                              color: AppTheme.teal,
+                              borderRadius: BorderRadius.circular(14)),
+                          child: const Icon(Icons.home_work_rounded,
+                              color: Colors.white, size: 22)),
+                      const SizedBox(width: 11),
+                      const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tinggal Klik Kos',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w800, fontSize: 16)),
+                            SizedBox(height: 2),
+                            Text('Pencarian kos terpercaya',
+                                style: TextStyle(
+                                    color: AppTheme.muted, fontSize: 11)),
+                          ]),
+                    ]),
+                    const SizedBox(height: 28),
                     Container(
                         width: 58,
                         height: 58,
@@ -81,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: const Color(0xFFE3F1EC),
                             borderRadius: BorderRadius.circular(18)),
                         child: const Icon(Icons.waving_hand_rounded,
-                            color: Color(0xFF087F73), size: 29)),
+                            color: AppTheme.teal, size: 29)),
                     const SizedBox(height: 21),
                     const Text('Masuk dulu, yuk',
                         style: TextStyle(
@@ -92,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Text(
                         'Simpan kos favorit dan ajukan sewa dengan mudah.',
                         style:
-                            TextStyle(color: Color(0xFF687572), fontSize: 15)),
+                            TextStyle(color: Color(0xFF5F6B73), fontSize: 15)),
                     const SizedBox(height: 27),
                     TextFormField(
                         controller: _email,
@@ -138,6 +170,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                     strokeWidth: 2, color: Colors.white))
                             : const Text('Masuk ke akun')),
                     const SizedBox(height: 24),
+                    OutlinedButton.icon(
+                        onPressed: auth.isLoading ? null : _googleLogin,
+                        icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
+                        label: const Text('Lanjut dengan Google')),
                     const SizedBox(height: 15),
                     Center(
                         child: TextButton(

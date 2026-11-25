@@ -1,5 +1,5 @@
 name: tinggal_klik_kos
-description: Aplikasi pencarian dan manajemen kos Tinggal Klik kos ku.
+description: Aplikasi pencarian dan manajemen kos Tinggal Klik Kos di Padang.
 publish_to: "none"
 version: 1.0.0+1
 
@@ -17,6 +17,7 @@ dependencies:
   material_ui: any
   supabase_flutter: ^2.18.3
   flutter_map: 8.3.2
+  geolocator: ^14.1.2
   latlong2: 0.10.1
 dev_dependencies:
   flutter_test:

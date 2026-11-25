@@ -7,6 +7,7 @@ import '../../../domain/entities/kos_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kos_data_provider.dart';
 import '../shared/listing_screens.dart';
+import '../shared/profile_screen.dart';
 import '../shared/transaction_screens.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -115,7 +116,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Kos tersedia di Padang',
+                      const Text('Lagi hits minggu ini',
                           style: TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w800)),
                       TextButton(
@@ -152,7 +153,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(_tab == 2 ? 'Kos favorit' : 'Semua kos',
+                      Text(_tab == 2 ? 'Kos favorit' : 'Paling dicari',
                           style: const TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w800)),
                       Text('${listings.length} kos',
@@ -161,6 +162,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  if (data.syncNotice != null && data.loadError == null)
+                    Card(
+                        child: ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.sync_problem_outlined,
+                                color: Color(0xFFAF711C)),
+                            title: Text(data.syncNotice!),
+                            trailing: IconButton(
+                                tooltip: 'Sinkronkan sekarang',
+                                onPressed: data.load,
+                                icon: const Icon(Icons.refresh_rounded)))),
                   if (data.loadError != null)
                     Card(
                         child: Padding(
@@ -176,7 +188,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               Text(data.loadError!,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                      fontSize: 12, color: Color(0xFF687572))),
+                                      fontSize: 12, color: Color(0xFF5F6B73))),
                               TextButton.icon(
                                   onPressed: data.load,
                                   icon: const Icon(Icons.refresh),
@@ -205,7 +217,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                   style: const TextStyle(
                                       fontSize: 12,
                                       height: 1.4,
-                                      color: Color(0xFF687572))),
+                                      color: Color(0xFF5F6B73))),
                             ]))),
                   ...listings
                       .map((listing) => _listingCard(listing, data, user)),
@@ -250,20 +262,33 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         children: [
           const Icon(Icons.location_on_rounded, color: AppTheme.teal, size: 18),
           const SizedBox(width: 4),
-          const Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('Lokasi kamu',
-                    style: TextStyle(color: Color(0xFF78837F), fontSize: 11)),
-                Row(children: [
-                  Text('Padang',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                  SizedBox(width: 3),
-                  Icon(Icons.keyboard_arrow_down_rounded, size: 17),
-                ]),
-              ])),
+          Expanded(
+              child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => KosMapScreen(
+                              listings: context
+                                  .read<KosDataProvider>()
+                                  .approvedListings))),
+                  child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Lokasi kamu',
+                                style: TextStyle(
+                                    color: Color(0xFF5F6B73), fontSize: 11)),
+                            Row(children: [
+                              Text('Padang',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14)),
+                              SizedBox(width: 3),
+                              Icon(Icons.keyboard_arrow_down_rounded, size: 17),
+                            ]),
+                          ])))),
           IconButton.filledTonal(
               tooltip: 'Notifikasi',
               onPressed: () => Navigator.push(
@@ -274,12 +299,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           if (user != null)
             Padding(
                 padding: const EdgeInsets.only(left: 6),
-                child: CircleAvatar(
-                    radius: 17,
-                    backgroundColor: const Color(0xFFDCEBE1),
-                    child: Text(user.name.isEmpty
-                        ? 'K'
-                        : user.name.characters.first.toUpperCase()))),
+                child: IconButton(
+                    tooltip: 'Profil saya',
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ProfileScreen())),
+                    icon: CircleAvatar(
+                        radius: 17,
+                        backgroundColor: const Color(0xFFDCEBE1),
+                        child: Text(user.name.isEmpty
+                            ? 'K'
+                            : user.name.characters.first.toUpperCase())))),
         ],
       );
 
@@ -343,7 +374,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
-                      const TextStyle(color: Color(0xFF78837F), fontSize: 11)),
+                      const TextStyle(color: Color(0xFF5F6B73), fontSize: 11)),
               const SizedBox(height: 8),
               Row(children: [
                 Text(_rupiah(listing.price),
@@ -352,7 +383,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         fontWeight: FontWeight.w800,
                         fontSize: 17)),
                 const Text(' /bulan',
-                    style: TextStyle(color: Color(0xFF78837F), fontSize: 11)),
+                    style: TextStyle(color: Color(0xFF5F6B73), fontSize: 11)),
                 const Spacer(),
                 _pill('${listing.roomsAvailable} kamar kosong'),
               ]),
@@ -397,7 +428,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 10, color: Color(0xFF78837F))),
+                            fontSize: 10, color: Color(0xFF5F6B73))),
                     const SizedBox(height: 7),
                     Row(children: [
                       Expanded(
@@ -417,8 +448,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 tooltip: favorite
                                     ? 'Hapus favorit'
                                     : 'Simpan favorit',
-                                onPressed: () => data.toggleFavorite(
-                                    user?.id ?? 'guest', listing.id),
+                                onPressed: () async {
+                                  try {
+                                    await data.toggleFavorite(
+                                        user?.id ?? 'guest', listing.id);
+                                  } catch (error) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Favorit gagal diperbarui: $error')));
+                                  }
+                                },
                                 icon: Icon(
                                     favorite
                                         ? Icons.favorite_rounded
@@ -454,7 +495,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   decoration: const BoxDecoration(
                       color: Color(0xFFFFD77D), shape: BoxShape.circle))),
           Icon(Icons.house_rounded,
-              size: large ? 134 : 74, color: const Color(0xFF2F7165)),
+              size: large ? 134 : 74, color: const Color(0xFF2F6B5E)),
         ]),
       );
 
@@ -510,7 +551,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             fontSize: 10, fontWeight: FontWeight.w800)),
                     Text(subtitle,
                         style: const TextStyle(
-                            fontSize: 9, color: Color(0xFF78837F))),
+                            fontSize: 9, color: Color(0xFF5F6B73))),
                   ])),
             ]),
           ),

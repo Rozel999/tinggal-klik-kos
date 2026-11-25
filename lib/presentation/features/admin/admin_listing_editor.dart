@@ -158,9 +158,10 @@ class _AdminListingEditorState extends State<AdminListingEditor> {
           .saveListing(item, preserveStatus: true);
       if (mounted) Navigator.pop(context);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Listing belum tersimpan: $error')));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -228,7 +229,7 @@ class _AdminListingEditorState extends State<AdminListingEditor> {
                 if (!_loadingOwners && _owners.isEmpty && _ownerError == null)
                   const Text(
                       'Belum ada akun Mitra Pemilik Kos. Buat akun mitra terlebih dahulu sebelum menambahkan listing.',
-                      style: TextStyle(color: Color(0xFF687572), height: 1.4)),
+                      style: TextStyle(color: Color(0xFF5F6B73), height: 1.4)),
                 if (_owners.isNotEmpty)
                   DropdownButtonFormField<String>(
                     initialValue: _selectedOwnerId,

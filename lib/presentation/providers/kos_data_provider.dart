@@ -10,7 +10,7 @@ import '../../domain/entities/kos_models.dart';
 
 class KosDataProvider extends ChangeNotifier {
   KosDataProvider() {
-    if (BackendConfig.mode == BackendMode.supabase) {
+    if (isSupabaseMode) {
       _authSubscription =
           Supabase.instance.client.auth.onAuthStateChange.listen((_) {
         unawaited(_loadSupabase());
@@ -24,15 +24,32 @@ class KosDataProvider extends ChangeNotifier {
   List<KosBooking> _bookings = [];
   List<KosChatMessage> _messages = [];
   List<KosInvoice> _invoices = [];
+  List<KosReview> _reviews = [];
   Map<String, Set<String>> _favorites = {};
   final List<StreamSubscription<dynamic>> _remoteSubscriptions = [];
   StreamSubscription<AuthState>? _authSubscription;
+  Timer? _pollingFallback;
+  bool _realtimeFailed = false;
+  bool _pollingInProgress = false;
   bool isLoaded = false;
   String? loadError;
+  String? syncNotice;
+
+  void _appendLoadError(String message, Object error) {
+    loadError = [
+      if (loadError != null && loadError!.isNotEmpty) loadError!,
+      '$message: $error',
+    ].join('\n');
+  }
 
   List<KosListing> get listings => List.unmodifiable(_listings);
   List<KosBooking> get bookings => List.unmodifiable(_bookings);
   List<KosInvoice> get invoices => List.unmodifiable(_invoices);
+  List<KosReview> reviewsForListing(String listingId) =>
+      _reviews.where((review) => review.listingId == listingId).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  bool hasReviewedBooking(String bookingId) =>
+      _reviews.any((review) => review.bookingId == bookingId);
   List<KosListing> get approvedListings =>
       _listings.where((x) => x.isApproved).toList();
   List<KosRoom> roomsForListing(String id) =>
@@ -61,7 +78,8 @@ class KosDataProvider extends ChangeNotifier {
       _favorites[customerId]?.contains(listingId) ?? false;
   int get pendingReviewCount =>
       _listings.where((x) => x.status == 'pending').length;
-  bool get isSupabaseMode => BackendConfig.mode == BackendMode.supabase;
+  bool get isSupabaseMode =>
+      BackendConfig.mode == BackendMode.supabase && BackendConfig.isConfigured;
 
   Future<void> load() async {
     if (isSupabaseMode) {
@@ -94,6 +112,9 @@ class KosDataProvider extends ChangeNotifier {
             .map(
                 (x) => KosInvoice.fromJson(Map<String, dynamic>.from(x as Map)))
             .toList();
+        _reviews = (data['reviews'] as List? ?? const [])
+            .map((x) => KosReview.fromJson(Map<String, dynamic>.from(x as Map)))
+            .toList();
         _favorites = (data['favorites'] as Map<String, dynamic>)
             .map((k, v) => MapEntry(k, (v as List).cast<String>().toSet()));
       } catch (_) {
@@ -114,6 +135,7 @@ class KosDataProvider extends ChangeNotifier {
     _bookings = [];
     _messages = [];
     _invoices = [];
+    _reviews = [];
     _favorites = {};
     loadError = null;
 
@@ -121,30 +143,35 @@ class KosDataProvider extends ChangeNotifier {
       final rows = await client.from('kos_listings').select();
       _listings = _listingRows(rows);
     } catch (error) {
-      loadError = 'Listing Supabase belum dapat dibaca: $error';
+      _appendLoadError('Listing Supabase belum dapat dibaca', error);
     }
     try {
       final rows = await client.from('kos_rooms').select();
       _rooms = _roomRows(rows);
       _syncAllRoomCounts();
     } catch (error) {
-      loadError ??= 'Kamar Supabase belum dapat dibaca: $error';
+      _appendLoadError('Kamar Supabase belum dapat dibaca', error);
     }
     if (currentUserId != null) {
       try {
         _bookings = _bookingRows(await client.from('bookings').select());
       } catch (error) {
-        loadError ??= 'Booking Supabase belum dapat dibaca: $error';
+        _appendLoadError('Booking Supabase belum dapat dibaca', error);
       }
       try {
         _messages = _messageRows(await client.from('chat_messages').select());
       } catch (error) {
-        loadError ??= 'Chat Supabase belum dapat dibaca: $error';
+        _appendLoadError('Chat Supabase belum dapat dibaca', error);
       }
       try {
         _invoices = _invoiceRows(await client.from('invoices').select());
       } catch (error) {
-        loadError ??= 'Tagihan Supabase belum dapat dibaca: $error';
+        _appendLoadError('Tagihan Supabase belum dapat dibaca', error);
+      }
+      try {
+        _reviews = _reviewRows(await client.from('kos_reviews').select());
+      } catch (error) {
+        _appendLoadError('Ulasan Supabase belum dapat dibaca', error);
       }
       try {
         final rows =
@@ -152,12 +179,16 @@ class KosDataProvider extends ChangeNotifier {
         _favorites[currentUserId] =
             rows.map((r) => r['listing_id'].toString()).toSet();
       } catch (error) {
-        loadError ??= 'Favorit Supabase belum dapat dibaca: $error';
+        _appendLoadError('Favorit Supabase belum dapat dibaca', error);
       }
     }
     isLoaded = true;
     notifyListeners();
-    _startRemoteStreams(client, currentUserId);
+    if (_realtimeFailed) {
+      _startPollingFallback();
+    } else {
+      _startRemoteStreams(client, currentUserId);
+    }
   }
 
   void _startRemoteStreams(SupabaseClient client, String? userId) {
@@ -176,6 +207,8 @@ class KosDataProvider extends ChangeNotifier {
         (rows) => _messages = _messageRows(rows));
     _listen(client.from('invoices').stream(primaryKey: ['id']),
         (rows) => _invoices = _invoiceRows(rows));
+    _listen(client.from('kos_reviews').stream(primaryKey: ['id']),
+        (rows) => _reviews = _reviewRows(rows));
     _listen(
         client
             .from('favorites')
@@ -190,9 +223,33 @@ class KosDataProvider extends ChangeNotifier {
       apply(rows);
       notifyListeners();
     }, onError: (Object error) {
-      loadError ??= 'Sinkronisasi realtime gagal: $error';
-      notifyListeners();
+      _switchToPolling(error);
     }));
+  }
+
+  void _switchToPolling(Object error) {
+    if (_realtimeFailed) return;
+    _realtimeFailed = true;
+    syncNotice =
+        'Realtime terputus; data tetap disinkronkan otomatis setiap 60 detik.';
+    debugPrint('Supabase Realtime tidak tersedia; gunakan polling: $error');
+    unawaited(_cancelRemoteSubscriptions());
+    _startPollingFallback();
+    notifyListeners();
+  }
+
+  void _startPollingFallback() {
+    _pollingFallback ??= Timer.periodic(const Duration(seconds: 60), (_) {
+      if (_pollingInProgress) return;
+      if (Supabase.instance.client.auth.currentSession == null) {
+        _pollingFallback?.cancel();
+        _pollingFallback = null;
+        return;
+      }
+      _pollingInProgress = true;
+      unawaited(_loadSupabase().whenComplete(
+          () => _pollingInProgress = false));
+    });
   }
 
   List<KosListing> _listingRows(dynamic rows) => (rows as List)
@@ -262,6 +319,20 @@ class KosDataProvider extends ChangeNotifier {
           isPaid: r['status'] == 'paid'))
       .toList();
 
+  List<KosReview> _reviewRows(dynamic rows) => (rows as List)
+      .map((row) => Map<String, dynamic>.from(row as Map))
+      .map((r) => KosReview(
+            id: r['id'].toString(),
+            bookingId: r['booking_id'].toString(),
+            listingId: r['listing_id'].toString(),
+            customerId: r['customer_id'].toString(),
+            customerName: (r['customer_name'] as String?) ?? 'Pengguna',
+            rating: (r['rating'] as num).toInt(),
+            comment: (r['comment'] as String?) ?? '',
+            createdAt: DateTime.parse(r['created_at'].toString()),
+          ))
+      .toList();
+
   void _syncAllRoomCounts() {
     for (var i = 0; i < _listings.length; i++) {
       final rooms = roomsForListing(_listings[i].id);
@@ -284,6 +355,7 @@ class KosDataProvider extends ChangeNotifier {
     _bookings = [];
     _messages = [];
     _invoices = [];
+    _reviews = [];
     _favorites = {};
   }
 
@@ -298,6 +370,7 @@ class KosDataProvider extends ChangeNotifier {
           'bookings': _bookings.map((x) => x.toJson()).toList(),
           'messages': _messages.map((x) => x.toJson()).toList(),
           'invoices': _invoices.map((x) => x.toJson()).toList(),
+          'reviews': _reviews.map((x) => x.toJson()).toList(),
           'favorites': _favorites.map((k, v) => MapEntry(k, v.toList())),
         }));
   }
@@ -323,6 +396,44 @@ class KosDataProvider extends ChangeNotifier {
       set.contains(listingId) ? set.remove(listingId) : set.add(listingId);
       await _save();
     }
+    notifyListeners();
+  }
+
+  Future<void> submitReview({
+    required KosBooking booking,
+    required String customerName,
+    required int rating,
+    required String comment,
+  }) async {
+    if (booking.status != 'completed' || booking.kind != 'booking') {
+      throw Exception('Ulasan hanya dapat diberikan setelah sewa selesai.');
+    }
+    if (hasReviewedBooking(booking.id)) {
+      throw Exception('Booking ini sudah memiliki ulasan.');
+    }
+    final review = KosReview(
+      id: newUuidV4(),
+      bookingId: booking.id,
+      listingId: booking.listingId,
+      customerId: booking.customerId,
+      customerName: customerName,
+      rating: rating,
+      comment: comment.trim(),
+      createdAt: DateTime.now(),
+    );
+    if (isSupabaseMode) {
+      await Supabase.instance.client.from('kos_reviews').insert({
+        'id': review.id,
+        'booking_id': review.bookingId,
+        'listing_id': review.listingId,
+        'customer_id': review.customerId,
+        'customer_name': review.customerName,
+        'rating': review.rating,
+        'comment': review.comment,
+      });
+    }
+    _reviews.add(review);
+    await _save();
     notifyListeners();
   }
 
@@ -592,6 +703,7 @@ class KosDataProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _pollingFallback?.cancel();
     unawaited(_cancelRemoteSubscriptions());
     unawaited(_authSubscription?.cancel());
     super.dispose();

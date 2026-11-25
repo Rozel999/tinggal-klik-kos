@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/app_user.dart';
 import '../../providers/auth_provider.dart';
 
@@ -66,6 +67,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(children: [
+                  Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                          color: AppTheme.teal,
+                          borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.home_work_rounded,
+                          color: Colors.white, size: 22)),
+                  const SizedBox(width: 11),
+                  const Text('Tinggal Klik Kos',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ]),
+                const SizedBox(height: 25),
                 Text(
                     widget.mitraApp
                         ? 'Daftar akun mitra'

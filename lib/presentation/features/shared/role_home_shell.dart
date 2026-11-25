@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../domain/entities/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import 'profile_screen.dart';
 
 class RoleHomeShell extends StatelessWidget {
   const RoleHomeShell(
@@ -46,10 +47,15 @@ class RoleHomeShell extends StatelessWidget {
               child: const Icon(Icons.home_work_rounded,
                   color: Colors.white, size: 19)),
           const SizedBox(width: 9),
-          const Text('Tinggal Klik',
+          const Text('Tinggal Klik Kos',
               style: TextStyle(fontWeight: FontWeight.w800))
         ]),
         actions: [
+          IconButton(
+              tooltip: 'Profil saya',
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen())),
+              icon: const Icon(Icons.account_circle_outlined)),
           IconButton(
               tooltip: 'Keluar',
               onPressed: () async => context.read<AuthProvider>().signOut(),
@@ -61,7 +67,7 @@ class RoleHomeShell extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
           children: [
             Text('Halo, ${user?.name ?? 'Pengguna'} 👋',
-                style: const TextStyle(color: Color(0xFF78837F), fontSize: 14)),
+                style: const TextStyle(color: Color(0xFF5F6B73), fontSize: 14)),
             const SizedBox(height: 5),
             Text(title,
                 style: const TextStyle(
@@ -145,15 +151,15 @@ class RoleHomeShell extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                           fontSize: 10,
-                                          color: Color(0xFF78837F)))
+                                          color: Color(0xFF5F6B73)))
                                 ]))))
                     .toList()),
             const SizedBox(height: 24),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Kelola layanan',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-              TextButton(onPressed: () {}, child: const Text('Lihat semua'))
-            ]),
+            const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Kelola layanan',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             const SizedBox(height: 6),
             GridView.builder(
                 shrinkWrap: true,
@@ -169,50 +175,34 @@ class RoleHomeShell extends StatelessWidget {
                   return Material(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () => ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(
-                                  content: Text(
-                                      '$feature akan tersedia pada tahap berikutnya.'))),
-                          child: Container(
-                              padding: const EdgeInsets.all(15),
-                              decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                      color: const Color(0xFFE9ECE7))),
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Container(
-                                        width: 38,
-                                        height: 38,
-                                        decoration: BoxDecoration(
-                                            color:
-                                                accent.withValues(alpha: .10),
-                                            borderRadius:
-                                                BorderRadius.circular(13)),
-                                        child: Icon(_iconFor(feature),
-                                            color: accent, size: 20)),
-                                    Row(children: [
-                                      Expanded(
-                                          child: Text(feature,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 12))),
-                                      const Icon(Icons.arrow_outward_rounded,
-                                          size: 15, color: Color(0xFF87918E))
-                                    ])
-                                  ]))));
+                      child: Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border:
+                                  Border.all(color: const Color(0xFFE9ECE7))),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                        color: accent.withValues(alpha: .10),
+                                        borderRadius:
+                                            BorderRadius.circular(13)),
+                                    child: Icon(_iconFor(feature),
+                                        color: accent, size: 20)),
+                                Text(feature,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12)),
+                              ])));
                 }),
             const SizedBox(height: 16),
-            const Text('Data ringkasan ini hanya contoh untuk mode demo.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Color(0xFF87918E))),
           ]),
     );
   }

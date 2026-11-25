@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/kos_data_provider.dart';
 import '../shared/transaction_screens.dart';
 import '../shared/listing_screens.dart';
+import '../shared/profile_screen.dart';
 
 class OwnerHomeScreen extends StatelessWidget {
   const OwnerHomeScreen({super.key});
@@ -34,6 +35,11 @@ class OwnerHomeScreen extends StatelessWidget {
             sum + (item.roomsTotal - item.roomsAvailable) * item.price);
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard Pemilik'), actions: [
+        IconButton(
+            tooltip: 'Profil saya',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen())),
+            icon: const Icon(Icons.account_circle_outlined)),
         IconButton(
             tooltip: 'Booking masuk',
             onPressed: () => Navigator.push(
@@ -154,22 +160,19 @@ class OwnerHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _metric(String number, String label) => Expanded(
-      child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .14),
-              borderRadius: BorderRadius.circular(15)),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(number,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800)),
-            Text(label,
-                style: const TextStyle(color: Colors.white70, fontSize: 11))
-          ])));
+  Widget _metric(String number, String label) => Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(15)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(number,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11))
+      ]));
 
   Future<void> _edit(BuildContext context, String ownerId, String ownerName,
       {KosListing? existing}) async {
@@ -185,6 +188,7 @@ class OwnerHomeScreen extends StatelessWidget {
     final available =
         TextEditingController(text: existing?.roomsAvailable.toString() ?? '5');
     var gender = existing?.gender ?? 'Campur';
+    var saving = false;
     LatLng? selectedLocation =
         existing == null ? null : LatLng(existing.latitude, existing.longitude);
     await showDialog<void>(
@@ -314,40 +318,57 @@ class OwnerHomeScreen extends StatelessWidget {
                         onPressed: () => Navigator.pop(dialogContext),
                         child: const Text('Batal')),
                     ElevatedButton(
-                        onPressed: () async {
-                          if (!key.currentState!.validate()) return;
-                          if (selectedLocation == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Pilih titik lokasi kos di peta terlebih dahulu.')));
-                            return;
-                          }
-                          final item = KosListing(
-                              id: existing?.id ?? newUuidV4(),
-                              ownerId: ownerId,
-                              ownerName: ownerName,
-                              name: name.text.trim(),
-                              address: address.text.trim(),
-                              description: description.text.trim(),
-                              price: int.parse(price.text),
-                              gender: gender,
-                              roomsTotal: int.parse(total.text),
-                              roomsAvailable: int.parse(available.text),
-                              amenities: existing?.amenities ?? const [],
-                              status: 'pending',
-                              latitude: selectedLocation!.latitude,
-                              longitude: selectedLocation!.longitude);
-                          await context
-                              .read<KosDataProvider>()
-                              .saveListing(item);
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
-                          }
-                        },
-                        child: Text(existing == null
-                            ? 'Ajukan listing'
-                            : 'Simpan & review'))
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                if (!key.currentState!.validate()) return;
+                                if (selectedLocation == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Pilih titik lokasi kos di peta terlebih dahulu.')));
+                                  return;
+                                }
+                                final item = KosListing(
+                                    id: existing?.id ?? newUuidV4(),
+                                    ownerId: ownerId,
+                                    ownerName: ownerName,
+                                    name: name.text.trim(),
+                                    address: address.text.trim(),
+                                    description: description.text.trim(),
+                                    price: int.parse(price.text),
+                                    gender: gender,
+                                    roomsTotal: int.parse(total.text),
+                                    roomsAvailable: int.parse(available.text),
+                                    amenities: existing?.amenities ?? const [],
+                                    status: 'pending',
+                                    latitude: selectedLocation!.latitude,
+                                    longitude: selectedLocation!.longitude);
+                                setDialog(() => saving = true);
+                                try {
+                                  await context
+                                      .read<KosDataProvider>()
+                                      .saveListing(item);
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                } catch (error) {
+                                  if (dialogContext.mounted) {
+                                    setDialog(() => saving = false);
+                                  }
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Listing belum tersimpan: $error')));
+                                  }
+                                }
+                              },
+                        child: Text(saving
+                            ? 'Menyimpan...'
+                            : existing == null
+                                ? 'Ajukan listing'
+                                : 'Simpan & review'))
                   ],
                 )));
     name.dispose();
@@ -363,7 +384,8 @@ class OwnerHomeScreen extends StatelessWidget {
         context: context,
         builder: (c) => AlertDialog(
                 title: const Text('Hapus properti?'),
-                content: Text('${listing.name} akan dihapus dari demo lokal.'),
+                content:
+                    Text('Listing ${listing.name} akan dihapus dari aplikasi.'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(c, false),
@@ -373,7 +395,13 @@ class OwnerHomeScreen extends StatelessWidget {
                       child: const Text('Hapus'))
                 ]));
     if (yes == true && context.mounted) {
-      context.read<KosDataProvider>().deleteListing(listing.id);
+      try {
+        await context.read<KosDataProvider>().deleteListing(listing.id);
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Listing gagal dihapus: $error')));
+      }
     }
   }
 }
@@ -405,7 +433,7 @@ class _ListingCard extends StatelessWidget {
             ]),
             const SizedBox(height: 10),
             Text(listing.address,
-                style: const TextStyle(color: Color(0xFF687572), fontSize: 12)),
+                style: const TextStyle(color: Color(0xFF5F6B73), fontSize: 12)),
             const SizedBox(height: 7),
             Text(
                 'Rp${listing.price} / bulan • ${listing.roomsAvailable}/${listing.roomsTotal} kamar kosong',
